@@ -1,30 +1,87 @@
 import socket
+import threading
 import sys
 
-# Get the listening port from the command line.
-port = int(sys.argv[1])
 
-# Create a TCP socket.
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#Create the TCP server
 
-# Allow the program to reuse the port after restarting.
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+def start_server(port):
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Listen for connections on the specified port.
-server.bind(("0.0.0.0", port))
-server.listen()
+    server.bind(("0.0.0.0", port))
 
-print(f"Chat server is listening on port {port}")
+    server.listen()
 
-# Wait for another computer to connect.
-while True:
-    connection, address = server.accept()
+    print(f"Server listening on port {port}")
 
-    print(f"Connected to {address}")
+    return server
 
-    # Receive a message.
-    message = connection.recv(1024).decode("utf-8")
+#Server-side: Accept incoming connections and receive messages
 
-    print(f"Message received: {message}")
+def accept_connections(server):
+    while True:
+        client_socket, client_address = server.accept()
 
-    connection.close()
+        print(f"Connected to {client_address}")
+
+        thread = threading.Thread(
+            target=handle_client,
+            args=(client_socket,)
+        )
+
+        thread.start()
+
+
+def handle_client(client_socket):
+    while True:
+        try:
+            message = client_socket.recv(1024)
+
+            if not message:
+                break
+
+            print(message.decode())
+
+        except OSError:
+            break
+
+    client_socket.close()
+    
+#Client-side code
+    
+def connect_to_peer(ip, port):
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    client.connect((ip, port))
+
+    print(f"Connected to {ip}:{port}")
+
+    return client
+
+
+
+#Combine the client and server into ONE program
+
+def main():
+    port = int(sys.argv[1])
+
+    server = start_server(port)
+
+    server_thread = threading.Thread(
+        target=accept_connections,
+        args=(server,),
+        daemon=True
+    )
+
+    server_thread.start()
+
+    while True:
+        command = input(">> ")
+
+        if command == "exit":
+            break
+
+    server.close()
+
+if __name__ == "__main__":
+    main()
