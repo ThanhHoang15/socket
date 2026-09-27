@@ -25,15 +25,60 @@ def accept_connections(server):
     while True:
         client_socket, client_address = server.accept()
 
-        print(f"Connected to {client_address}")
+        peer_ip = client_address[0]
 
-        thread = threading.Thread(
-            target=handle_client,
-            args=(client_socket,)
-        )
+        try:
+            # Receive the other computer's listening port
+            data = client_socket.recv(1024).decode()
 
-        thread.start()
+            if not data.startswith("PORT:"):
+                client_socket.close()
+                continue
 
+            peer_port = int(data.split(":")[1])
+
+            # Reject duplicate connection
+            duplicate = False
+
+            for connection in connections:
+                if connection["ip"] == peer_ip and connection["port"] == peer_port:
+                    duplicate = True
+                    break
+
+            if duplicate:
+                client_socket.sendall("DUPLICATE".encode())
+                print("Error: Duplicate connection.")
+                client_socket.close()
+                continue
+
+            # Reject connection if already connected to 3 peers
+            if len(connections) >= 3:
+                client_socket.sendall("FULL".encode())
+                print("Error: Maximum of 3 connections allowed.")
+                client_socket.close()
+                continue
+
+            # Tell the connecting computer the connection was accepted
+            client_socket.sendall("OK".encode())
+
+            # Store the incoming connection
+            connections.append({
+                "ip": peer_ip,
+                "port": peer_port,
+                "socket": client_socket
+            })
+
+            print(f"Connected to {peer_ip}:{peer_port}")
+
+            thread = threading.Thread(
+                target=handle_client,
+                args=(client_socket,)
+            )
+
+            thread.start()
+
+        except (ValueError, OSError):
+            client_socket.close()
 
 def handle_client(client_socket):
     while True:
@@ -56,7 +101,7 @@ def connect_to_peer(ip, port, my_ip, my_port):
 
     # Section 3.3 - Question 4:
     # Reject self-connections
-    if ip == my_ip and port == my_port:
+    if port == my_port and (ip == my_ip or ip == "127.0.0.1"):
         print("Error: Cannot connect to yourself.")
         return
 
@@ -66,6 +111,11 @@ def connect_to_peer(ip, port, my_ip, my_port):
         if connection["ip"] == ip and connection["port"] == port:
             print("Error: Duplicate connection.")
             return
+        
+    # Allow maximum 3 peer connections
+    if len(connections) >= 3:
+        print("Error: Maximum of 3 connections allowed.")
+        return
 
     # Create a TCP socket for the new connection
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -75,16 +125,38 @@ def connect_to_peer(ip, port, my_ip, my_port):
         # Establish a new TCP connection to the specified IP address and port
         client.connect((ip, port))
 
+        # Tell the other computer my listening port
+        client.sendall(f"PORT:{my_port}".encode())
+
+        # Section 3.3 - Question 4:
+        # Wait for the other computer to accept or reject the connection
+        response = client.recv(1024).decode()
+
+        # Section 3.3 - Question 4:
+        # Reject the connection if it is a duplicate
+        if response == "DUPLICATE":
+            print("Error: Duplicate connection.")
+            client.close()
+            return
+
+        # Section 3.3 - Question 4:
+        # Reject the connection if the peer already has 3 connections
+        if response == "FULL":
+            print("Error: The peer already has 3 connections.")
+            client.close()
+            return
+
         # Section 3.3 - Question 4:
         # Display a success message when the connection is established
-        print(f"Connected to {ip}:{port}")
+        if response == "OK":
+            print(f"Connected to {ip}:{port}")
 
-        # Save the connection for duplicate checking and later commands
-        connections.append({
-            "ip": ip,
-            "port": port,
-            "socket": client
-        })
+            # Save the connection for duplicate checking
+            connections.append({
+                "ip": ip,
+                "port": port,
+                "socket": client
+            })
 
     except socket.gaierror:
         # Section 3.3 - Question 4:
@@ -206,9 +278,13 @@ def main():
 
             if len(parts) == 3:
                 ip = parts[1]
-                peer_port = int(parts[2])
 
-                # Call the existing client function
+                try:
+                    peer_port = int(parts[2])
+                except ValueError:
+                    print("Error: Port must be a number.")
+                    continue
+
                 connect_to_peer(ip, peer_port, my_ip, port)
 
             else:
