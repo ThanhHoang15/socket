@@ -3,9 +3,10 @@ import socket
 import threading
 import sys
 
+# Store all active peer connections
+connections = []
 
 # Create the TCP server
-
 def start_server(port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -51,19 +52,52 @@ def handle_client(client_socket):
 
 
 # Client-side code
+def connect_to_peer(ip, port, my_ip, my_port):
 
-def connect_to_peer(ip, port):
+    # Section 3.3 - Question 4:
+    # Reject self-connections
+    if ip == my_ip and port == my_port:
+        print("Error: Cannot connect to yourself.")
+        return
+
+    # Section 3.3 - Question 4:
+    # Reject duplicate connections
+    for connection in connections:
+        if connection["ip"] == ip and connection["port"] == port:
+            print("Error: Duplicate connection.")
+            return
+
+    # Create a TCP socket for the new connection
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    client.connect((ip, port))
+    try:
+        # Section 3.3 - Question 4:
+        # Establish a new TCP connection to the specified IP address and port
+        client.connect((ip, port))
 
-    print(f"Connected to {ip}:{port}")
+        # Section 3.3 - Question 4:
+        # Display a success message when the connection is established
+        print(f"Connected to {ip}:{port}")
 
-    return client
+        # Save the connection for duplicate checking and later commands
+        connections.append({
+            "ip": ip,
+            "port": port,
+            "socket": client
+        })
+
+    except socket.gaierror:
+        # Section 3.3 - Question 4:
+        # Reject an invalid IP address and display an error message
+        print("Error: Invalid IP address.")
+
+    except (ConnectionRefusedError, TimeoutError, OSError):
+        # Section 3.3 - Question 4:
+        # Display an error message if the connection fails
+        print(f"Error: Could not connect to {ip}:{port}")
 
 
 # Section 3.3 - Question 1: Help command
-
 def help_command():
 
     # Display all available commands and explain their functionality
@@ -133,6 +167,10 @@ def myport_command(port):
 # Combine the client and server into ONE program
 def main():
     port = int(sys.argv[1])
+    
+    # Get this computer's IP address
+    hostname = socket.gethostname()
+    my_ip = socket.gethostbyname(hostname)
 
     server = start_server(port)
 
@@ -171,7 +209,7 @@ def main():
                 peer_port = int(parts[2])
 
                 # Call the existing client function
-                connect_to_peer(ip, peer_port)
+                connect_to_peer(ip, peer_port, my_ip, port)
 
             else:
                 print("Error: Usage: connect <destination> <port>")        
