@@ -23,7 +23,7 @@ def start_server(port):
 
 def accept_connections(server):
     while True:
-        client_socket, client_address = server.accept()
+       
         try:
             client_socket, client_address = server.accept()
 
@@ -347,6 +347,30 @@ def send_command(connection_id, message):
     except OSError:
         print("Error: Message could not be sent.")
 
+# Section 3.3 - Question 8: Exit command
+def exit_command():
+
+    # Go through all active connections
+    for connection in connections:
+
+        try:
+            # Tell the peer that the connection is being terminated
+            connection["socket"].sendall("TERMINATE".encode())
+
+        except OSError:
+            pass
+
+        # Close the peer connection
+        connection["socket"].close()
+
+    # Remove all connections from the list
+    connections.clear()
+
+
+
+
+
+
 
 
 
@@ -406,8 +430,16 @@ def main():
             else:
                 print("Error: Usage: connect <destination> <port>")        
 
-        # Exit the program
+        # Section 3.3 - Question 8: Exit command
         elif command == "exit":
+
+            # Close all peer connections
+            exit_command()
+
+            # Close the server socket
+            server.close()
+
+            # Terminate the program
             break
 
         # Handle empty input
@@ -463,7 +495,7 @@ def main():
         # Handle invalid commands
         else:
             print("Error: Invalid command. Type 'help' to see available commands.")  
-    server.close()
+
 
 
 if __name__ == "__main__":
