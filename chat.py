@@ -80,45 +80,47 @@ def accept_connections(server):
         except (ValueError, OSError):
             client_socket.close()
 
-# Section 3.3 - Question 6: Handle terminated connections
+# Section 3.3 - Questions 6 and 7: Handle terminated connections and received messages
 def handle_client(client_socket):
-
-    # Keep listening for messages from the connected peer
     while True:
         try:
-            # Receive data from the peer
             message = client_socket.recv(1024)
 
-            # Stop if the connection was closed
             if not message:
                 break
 
-            # Convert received data to text
             message = message.decode()
 
-            # Check if the other peer terminated the connection
+            # Check if the peer terminated the connection
             if message == "TERMINATE":
                 print("A remote peer terminated the connection.")
                 break
 
-            # Display normal received messages
-            print(message)
+            # Check if a chat message was received
+            if message.startswith("MESSAGE:"):
 
-        # Stop if a socket error happens
+                # Get the actual message text
+                received_message = message[len("MESSAGE:"):]
+
+                # Find the sender's connection information
+                for connection in connections:
+                    if connection["socket"] == client_socket:
+
+                        print(f"\nMessage received from {connection['ip']}")
+                        print(f"Sender's Port: {connection['port']}")
+                        print(f'Message: "{received_message}"')
+                        break
+
         except OSError:
             break
 
-    # Find the disconnected peer in the connection list
+    # Remove the disconnected peer
     for connection in connections:
-
-        # Check if this is the disconnected socket
         if connection["socket"] == client_socket:
-
-            # Remove the peer from the connection list
             connections.remove(connection)
             break
 
-    # Close the socket
+
     client_socket.close()
 
 
@@ -310,8 +312,36 @@ def terminate_command(connection_id):
 
     # Display confirmation
     print(f"Connection {connection_id} terminated: {peer_ip}:{peer_port}")
- 
-# Combine the client and server into ONE program
+# Section 3.3 - Question 7: Send command
+def send_command(connection_id, message):
+
+    # Check if the connection ID exists
+    if connection_id < 1 or connection_id > len(connections):
+        print("Error: Invalid connection ID.")
+        return
+
+    # Check if the message is longer than 100 characters
+    if len(message) > 100:
+        print("Error: Message cannot be more than 100 characters.")
+        return
+
+    # Get the selected connection
+    connection = connections[connection_id - 1]
+
+    try:
+        # Send the message to the selected peer
+        connection["socket"].sendall(f"MESSAGE:{message}".encode())
+
+        # Display confirmation
+        print(f"Message sent to {connection_id}")
+
+    except OSError:
+        print("Error: Message could not be sent.")
+
+
+
+
+# main function
 def main():
     port = int(sys.argv[1])
     
@@ -398,7 +428,28 @@ def main():
 
             else:
                 print("Error: Usage: terminate <connection id>")    
-            
+                # Section 3.3 - Question 7: Send command
+        elif command.startswith("send "):
+
+            # Separate the command, connection ID, and message
+            parts = command.split(maxsplit=2)
+
+            if len(parts) == 3:
+
+                try:
+                    connection_id = int(parts[1])
+
+                except ValueError:
+                    print("Error: Connection ID must be a number.")
+                    continue
+
+                message = parts[2]
+
+                # Send the message to the selected peer
+                send_command(connection_id, message)
+
+            else:
+                print("Error: Usage: send <connection id> <message>")    
 
         # Handle invalid commands
         else:
