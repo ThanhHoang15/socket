@@ -24,6 +24,12 @@ def start_server(port):
 def accept_connections(server):
     while True:
         client_socket, client_address = server.accept()
+        try:
+            client_socket, client_address = server.accept()
+
+        # Stop accepting connections if the server socket is closed
+        except OSError:
+            break
 
         peer_ip = client_address[0]
 
@@ -280,6 +286,7 @@ def list_command():
 
         # Display the connection ID, peer IP address, and peer listening port
         print(f"{i}:  {connection['ip']}        {connection['port']}")   
+        
     
 # Section 3.3 - Question 6: Terminate command
 def terminate_command(connection_id):
@@ -312,6 +319,8 @@ def terminate_command(connection_id):
 
     # Display confirmation
     print(f"Connection {connection_id} terminated: {peer_ip}:{peer_port}")
+    
+    
 # Section 3.3 - Question 7: Send command
 def send_command(connection_id, message):
 
