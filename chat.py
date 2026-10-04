@@ -376,7 +376,24 @@ def exit_command():
 
 # main function
 def main():
-    port = int(sys.argv[1])
+    # Check if the listening port was provided
+    if len(sys.argv) != 2:
+        print("Error: Usage: python chat.py <port>")
+        return
+
+    try:
+        # Convert the port number to an integer
+        port = int(sys.argv[1])
+
+    except ValueError:
+        # Reject a port that is not a number
+        print("Error: Port must be a number.")
+        return
+
+    # Check if the port number is valid
+    if port < 1 or port > 65535:
+        print("Error: Port must be between 1 and 65535.")
+        return
     
     # Get this computer's IP address
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
