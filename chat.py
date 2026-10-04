@@ -80,19 +80,45 @@ def accept_connections(server):
         except (ValueError, OSError):
             client_socket.close()
 
+# Section 3.3 - Question 6: Handle terminated connections
 def handle_client(client_socket):
+
+    # Keep listening for messages from the connected peer
     while True:
         try:
+            # Receive data from the peer
             message = client_socket.recv(1024)
 
+            # Stop if the connection was closed
             if not message:
                 break
 
-            print(message.decode())
+            # Convert received data to text
+            message = message.decode()
 
+            # Check if the other peer terminated the connection
+            if message == "TERMINATE":
+                print("A remote peer terminated the connection.")
+                break
+
+            # Display normal received messages
+            print(message)
+
+        # Stop if a socket error happens
         except OSError:
             break
 
+    # Find the disconnected peer in the connection list
+    for connection in connections:
+
+        # Check if this is the disconnected socket
+        if connection["socket"] == client_socket:
+
+            # Remove the peer from the connection list
+            connections.remove(connection)
+            break
+
+    # Close the socket
     client_socket.close()
 
 
@@ -119,6 +145,7 @@ def connect_to_peer(ip, port, my_ip, my_port):
 
     # Create a TCP socket for the new connection
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
 
     try:
         # Section 3.3 - Question 4:
@@ -157,6 +184,13 @@ def connect_to_peer(ip, port, my_ip, my_port):
                 "port": port,
                 "socket": client
             })
+            # Start a thread to receive messages from this peer
+            thread = threading.Thread(
+                target=handle_client,
+                args=(client,)
+            )
+
+            thread.start()
 
     except socket.gaierror:
         # Section 3.3 - Question 4:
@@ -245,7 +279,37 @@ def list_command():
         # Display the connection ID, peer IP address, and peer listening port
         print(f"{i}:  {connection['ip']}        {connection['port']}")   
     
- 
+# Section 3.3 - Question 6: Terminate command
+def terminate_command(connection_id):
+
+    # Check if the connection ID exists
+    if connection_id < 1 or connection_id > len(connections):
+        print("Error: Invalid connection ID.")
+        return
+
+    # Get the selected connection
+    connection = connections[connection_id - 1]
+
+    # Get the peer information
+    peer_ip = connection["ip"]
+    peer_port = connection["port"]
+    peer_socket = connection["socket"]
+
+    try:
+        # Tell the other peer that this connection is being terminated
+        peer_socket.sendall("TERMINATE".encode())
+
+    except OSError:
+        pass
+
+    # Close the connection
+    peer_socket.close()
+
+    # Remove the connection from the list
+    connections.remove(connection)
+
+    # Display confirmation
+    print(f"Connection {connection_id} terminated: {peer_ip}:{peer_port}")
  
 # Combine the client and server into ONE program
 def main():
@@ -315,6 +379,25 @@ def main():
 
             # Display all active peer connections
             list_command()
+        # Section 3.3 - Question 6: Terminate command
+        elif command.startswith("terminate "):
+
+            # Separate the command and connection ID
+            parts = command.split()
+
+            if len(parts) == 2:
+                try:
+                    connection_id = int(parts[1])
+
+                except ValueError:
+                    print("Error: Connection ID must be a number.")
+                    continue
+
+                # Terminate the selected connection
+                terminate_command(connection_id)
+
+            else:
+                print("Error: Usage: terminate <connection id>")    
             
 
         # Handle invalid commands
