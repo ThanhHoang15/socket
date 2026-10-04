@@ -204,7 +204,6 @@ def help_command():
     
 
 # Section 3.3 - Question 2: Myip command
-
 def myip_command():
 
     # Create a UDP socket to determine the computer's actual IP address
@@ -229,11 +228,23 @@ def myip_command():
  
 
 # Section 3.3 - Question 3: Myport command
-
 def myport_command(port):
 
     # Display the port on which this program is listening
     print(f"Listening Port: {port}")
+    
+# Section 3.3 - Question 5: List command
+def list_command():
+
+    # Display the heading for the connection list
+    print("id: IP address        Port No.")
+
+    # Go through all active connections
+    for i, connection in enumerate(connections, start=1):
+
+        # Display the connection ID, peer IP address, and peer listening port
+        print(f"{i}:  {connection['ip']}        {connection['port']}")   
+    
  
  
 # Combine the client and server into ONE program
@@ -241,8 +252,10 @@ def main():
     port = int(sys.argv[1])
     
     # Get this computer's IP address
-    hostname = socket.gethostname()
-    my_ip = socket.gethostbyname(hostname)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.connect(("8.8.8.8", 80))
+    my_ip = sock.getsockname()[0]
+    sock.close()
 
     server = start_server(port)
 
@@ -297,6 +310,11 @@ def main():
         # Handle empty input
         elif command == "":
             print("Error: Please enter a command.")
+        # Section 3.3 - Question 5: List command
+        elif command == "list":
+
+            # Display all active peer connections
+            list_command()
             
 
         # Handle invalid commands
